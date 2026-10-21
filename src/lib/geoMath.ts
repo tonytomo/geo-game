@@ -5,7 +5,7 @@ const MAX_SCORE = 5_000;
 const WORLD_DECAY_CONSTANT = 2_000_000;
 
 function toRadians(degrees: number): number {
-    return (degrees * Math.PI) / 180;
+	return (degrees * Math.PI) / 180;
 }
 
 /**
@@ -13,23 +13,23 @@ function toRadians(degrees: number): number {
  * using the Haversine formula.
  */
 export function calculateDistanceMeters(
-    lat1: number,
-    lng1: number,
-    lat2: number,
-    lng2: number
+	lat1: number,
+	lng1: number,
+	lat2: number,
+	lng2: number
 ): number {
-    const dLat = toRadians(lat2 - lat1);
-    const dLng = toRadians(lng2 - lng1);
+	const dLat = toRadians(lat2 - lat1);
+	const dLng = toRadians(lng2 - lng1);
 
-    const rLat1 = toRadians(lat1);
-    const rLat2 = toRadians(lat2);
+	const rLat1 = toRadians(lat1);
+	const rLat2 = toRadians(lat2);
 
-    const a =
-        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(rLat1) * Math.cos(rLat2) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
+	const a =
+		Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+		Math.cos(rLat1) * Math.cos(rLat2) * Math.sin(dLng / 2) * Math.sin(dLng / 2);
 
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return Math.round(EARTH_RADIUS_METERS * c);
+	const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+	return Math.round(EARTH_RADIUS_METERS * c);
 }
 
 /**
@@ -38,23 +38,21 @@ export function calculateDistanceMeters(
  * - > 25m:  5000 * e^(-distance / 2,000,000)
  */
 export function calculateScore(distanceMeters: number | null): number {
-    if (distanceMeters === null || distanceMeters < 0) return 0;
-    if (distanceMeters <= PERFECT_SCORE_RADIUS_METERS) return MAX_SCORE;
+	if (distanceMeters === null || distanceMeters < 0) return 0;
+	if (distanceMeters <= PERFECT_SCORE_RADIUS_METERS) return MAX_SCORE;
 
-    const rawScore = MAX_SCORE * Math.exp(-distanceMeters / WORLD_DECAY_CONSTANT);
-    return Math.max(0, Math.min(MAX_SCORE, Math.round(rawScore)));
+	const rawScore = MAX_SCORE * Math.exp(-distanceMeters / WORLD_DECAY_CONSTANT);
+	return Math.max(0, Math.min(MAX_SCORE, Math.round(rawScore)));
 }
 
 /**
  * Formats distance in meters into a human-readable string ("142 m" or "1,420.5 km").
  */
 export function formatDistance(distanceMeters: number | null): string {
-    if (distanceMeters === null) return 'No Guess';
-    if (distanceMeters < 1000) {
-        return `${distanceMeters} m`;
-    }
-    const km = distanceMeters / 1000;
-    return km >= 100
-        ? `${Math.round(km).toLocaleString()} km`
-        : `${km.toFixed(1)} km`;
+	if (distanceMeters === null) return 'No Guess';
+	if (distanceMeters < 1000) {
+		return `${distanceMeters} m`;
+	}
+	const km = distanceMeters / 1000;
+	return km >= 100 ? `${Math.round(km).toLocaleString()} km` : `${km.toFixed(1)} km`;
 }
