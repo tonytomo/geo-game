@@ -1,5 +1,7 @@
 // See https://svelte.dev/docs/kit/types#app.d.ts
 // for information about these interfaces
+import '@types/google.maps';
+
 declare global {
 	namespace App {
 		// interface Error {}
@@ -10,4 +12,4 @@ declare global {
 	}
 }
 
-export {};
+export { };
