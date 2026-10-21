@@ -2,13 +2,16 @@
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import L from 'leaflet';
+	import 'leaflet/dist/leaflet.css';
 	import { gameState } from '#lib/gameState.svelte.ts';
 	import { formatDistance } from '#lib/geoMath.ts';
 
 	let mapElement: HTMLDivElement;
 	let map: L.Map | null = null;
 	let layerGroup: L.LayerGroup | null = null;
+	let resizeObserver: ResizeObserver | null = null;
 	let isExpanded = $state(false);
+	let lastPhase = '';
 
 	const isReveal = $derived(gameState.phase === 'ROUND_REVEAL');
 
@@ -21,24 +24,29 @@
 			zoomControl: true
 		});
 
-		// Free OpenStreetMap standard tile layer
 		L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-			attribution: '&copy; OpenStreetMap contributors',
+			attribution: '&copy; OpenStreetMap',
 			maxZoom: 19
 		}).addTo(map);
 
 		layerGroup = L.layerGroup().addTo(map);
 
-		// Handle clicking on the map to drop/move the player's pin during IN_ROUND
+		// Click handler to place or move your guess pin during IN_ROUND
 		map.on('click', (e: L.LeafletMouseEvent) => {
 			if (gameState.phase !== 'IN_ROUND' || gameState.hasLockedGuess) return;
-			// Wrap longitude cleanly to [-180, 180]
 			const wrapped = e.latlng.wrap();
 			gameState.selectedPin = { lat: wrapped.lat, lng: wrapped.lng };
 		});
+
+		// Automatically recalculate Leaflet tile layout whenever the container resizes
+		resizeObserver = new ResizeObserver(() => {
+			map?.invalidateSize();
+		});
+		resizeObserver.observe(mapElement);
 	});
 
 	onDestroy(() => {
+		resizeObserver?.disconnect();
 		map?.remove();
 		map = null;
 	});
@@ -52,6 +60,15 @@
 		const target = gameState.currentLocation;
 
 		layerGroup.clearLayers();
+
+		// When transitioning into a fresh round, reset the map back to World View
+		if (phase === 'IN_ROUND' && lastPhase !== 'IN_ROUND') {
+			setTimeout(() => {
+				map?.invalidateSize();
+				map?.setView([20, 0], 2);
+			}, 50);
+		}
+		lastPhase = phase;
 
 		if (phase === 'IN_ROUND') {
 			if (pin) {
@@ -68,7 +85,7 @@
 		} else if (phase === 'ROUND_REVEAL' && target) {
 			const bounds = L.latLngBounds([[target.lat, target.lng]]);
 
-			// 1. True Target Location Marker (Gold/Emerald Star Dot)
+			// 1. True Target Location Marker (Gold)
 			L.circleMarker([target.lat, target.lng], {
 				radius: 10,
 				color: '#ffffff',
@@ -84,7 +101,6 @@
 				if (res.lat !== null && res.lng !== null) {
 					bounds.extend([res.lat, res.lng]);
 
-					// Dashed line between player guess and target
 					L.polyline(
 						[
 							[res.lat, res.lng],
@@ -97,7 +113,6 @@
 						}
 					).addTo(layerGroup);
 
-					// Player pin
 					L.circleMarker([res.lat, res.lng], {
 						radius: 7,
 						color: '#0f172a',
@@ -113,66 +128,48 @@
 				}
 			}
 
-			// Recalculate container size and fit all markers into view
 			setTimeout(() => {
 				map?.invalidateSize();
-				map?.fitBounds(bounds, { padding: [60, 60], maxZoom: 12 });
-			}, 100);
+				map?.fitBounds(bounds, { padding: [60, 60], maxZoom: 10 });
+			}, 80);
 		}
 	});
-
-	// Ensure Leaflet recalculates dimensions when the mini-map expands/collapses
-	function triggerResize() {
-		setTimeout(() => {
-			map?.invalidateSize();
-		}, 220);
-	}
 </script>
 
-<!-- Container switches between bottom-right overlay (IN_ROUND) and full-screen modal (ROUND_REVEAL) -->
 <div
 	role="region"
-	aria-label="Map Overlay"
+	aria-label="Guessing Map"
 	onmouseenter={() => {
-		if (!isReveal) {
-			isExpanded = true;
-			triggerResize();
-		}
+		if (!isReveal) isExpanded = true;
 	}}
 	onmouseleave={() => {
-		if (!isReveal) {
-			isExpanded = false;
-			triggerResize();
-		}
+		if (!isReveal) isExpanded = false;
 	}}
 	class={isReveal
 		? 'fixed inset-0 z-30 flex flex-col bg-slate-950 md:flex-row'
 		: `fixed right-4 bottom-4 z-20 flex flex-col overflow-hidden rounded-2xl border border-slate-700 bg-slate-900/95 shadow-2xl transition-all duration-200 ${
 				isExpanded
-					? 'h-[55vh] w-[92vw] opacity-100 sm:h-90 sm:w-120'
-					: 'h-44 w-64 opacity-85 hover:opacity-100'
+					? 'h-[55vh] w-[92vw] opacity-100 sm:h-95 sm:w-125'
+					: 'h-52 w-72 opacity-90 hover:opacity-100'
 			}`}
 >
 	<!-- Mobile / Tablet Toggle Button when in IN_ROUND -->
 	{#if !isReveal}
 		<button
 			type="button"
-			onclick={() => {
-				isExpanded = !isExpanded;
-				triggerResize();
-			}}
-			class="bg-slate-800 px-3 py-1 text-center text-[11px] font-semibold text-slate-200 sm:hidden"
+			onclick={() => (isExpanded = !isExpanded)}
+			class="shrink-0 bg-slate-800 px-3 py-1.5 text-center text-[11px] font-semibold text-slate-200 sm:hidden"
 		>
 			{isExpanded ? 'Minimize Map' : 'Expand Map'}
 		</button>
 	{/if}
 
-	<!-- Leaflet Map Canvas -->
-	<div bind:this={mapElement} class="h-full w-full flex-1"></div>
+	<!-- Leaflet Map Canvas (min-h-0 prevents flex child from overflowing the footer) -->
+	<div bind:this={mapElement} class="min-h-0 w-full flex-1"></div>
 
 	<!-- IN_ROUND Action Footer: Lock Guess Button -->
 	{#if !isReveal}
-		<div class="border-t border-slate-800 bg-slate-900 p-2.5">
+		<div class="shrink-0 border-t border-slate-800 bg-slate-900 p-2.5">
 			<button
 				type="button"
 				disabled={!gameState.selectedPin || gameState.hasLockedGuess}
@@ -197,7 +194,7 @@
 	<!-- ROUND_REVEAL Side Panel: Scores & Next Round Button -->
 	{#if isReveal}
 		<div
-			class="flex max-h-[45vh] w-full flex-col justify-between overflow-y-auto border-t border-slate-800 bg-slate-900 p-5 md:max-h-full md:w-96 md:border-t-0 md:border-l"
+			class="flex max-h-[45vh] w-full shrink-0 flex-col justify-between overflow-y-auto border-t border-slate-800 bg-slate-900 p-5 md:max-h-full md:w-96 md:border-t-0 md:border-l"
 		>
 			<div>
 				<div class="mb-4 flex items-center justify-between">
@@ -268,3 +265,13 @@
 		</div>
 	{/if}
 </div>
+
+<style>
+	/* Safeguard against Tailwind Preflight resetting Leaflet tile images */
+	:global(.leaflet-container img.leaflet-tile) {
+		max-width: none !important;
+		max-height: none !important;
+		width: 256px !important;
+		height: 256px !important;
+	}
+</style>
