@@ -7,6 +7,7 @@
 </script>
 
 <svelte:head>
+	<title>GeoFriends</title>
 	<link rel="icon" href={favicon} />
 </svelte:head>
 

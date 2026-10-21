@@ -1,2 +1,37 @@
-<h1>Welcome to SvelteKit</h1>
-<p>Visit <a href="https://svelte.dev/docs/kit">svelte.dev/docs/kit</a> to read the documentation</p>
+<!-- src/routes/+page.svelte -->
+<script lang="ts">
+	import AuthView from '#lib/components/AuthView.svelte';
+	import LobbyView from '#lib/components/LobbyView.svelte';
+	import MapOverlay from '#lib/components/MapOverlay.svelte';
+	import RoomBrowser from '#lib/components/RoomBrowser.svelte';
+	import StandingsModal from '#lib/components/StandingsModal.svelte';
+	import StreetView from '#lib/components/StreetView.svelte';
+	import { gameState } from '#lib/gameState.svelte.ts';
+
+	function handleGlobalKeydown(e: KeyboardEvent) {
+		if (
+			e.code === 'Space' &&
+			gameState.phase === 'IN_ROUND' &&
+			gameState.selectedPin &&
+			!gameState.hasLockedGuess
+		) {
+			e.preventDefault();
+			gameState.lockGuess();
+		}
+	}
+</script>
+
+<svelte:window onkeydown={handleGlobalKeydown} />
+
+{#if gameState.phase === 'DISCONNECTED'}
+	<AuthView />
+{:else if gameState.phase === 'BROWSER'}
+	<RoomBrowser />
+{:else if gameState.phase === 'LOBBY'}
+	<LobbyView />
+{:else if gameState.phase === 'IN_ROUND' || gameState.phase === 'ROUND_REVEAL'}
+	<StreetView />
+	<MapOverlay />
+{:else if gameState.phase === 'GAME_OVER'}
+	<StandingsModal />
+{/if}
