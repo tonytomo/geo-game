@@ -15,6 +15,7 @@ import type {
 	ServerToClientMessage,
 	Standing
 } from './types';
+import { SvelteURLSearchParams } from 'svelte/reactivity';
 
 const STORAGE_KEY_API = 'geofriends_api_key';
 const DEFAULT_WS_URL = WS_URL || 'ws://localhost:8080/ws';
@@ -507,3 +508,54 @@ class GameState {
 }
 
 export const gameState = new GameState();
+
+/**
+ * Parses URL parameters and auto-connects to the WebSocket server.
+ *
+ * @remarks
+ * This function should be called on mount to allow deep linking into the application.
+ * It will automatically connect to the WebSocket server if an API key is provided in the URL.
+ * It will also automatically join a room if a room name is provided in the URL.
+ */
+export function parseUrlParamsAndAutoConnect(): void {
+	if (typeof window === 'undefined') return;
+
+	const params = new SvelteURLSearchParams(window.location.search);
+	const keyParam = params.get('key');
+	const roomParam = params.get('room');
+	const wsParam = params.get('ws');
+
+	if (wsParam) {
+		gameState.wsUrl = decodeURIComponent(wsParam);
+	}
+
+	if (keyParam) {
+		gameState.apiKey = keyParam.trim();
+		localStorage.setItem('geofriends_api_key', gameState.apiKey);
+	}
+
+	// If a valid key exists, auto-connect immediately
+	if (gameState.apiKey) {
+		gameState.connect();
+
+		// If a target room is specified in the URL, join it once connected
+		if (roomParam) {
+			const targetRoom = roomParam.trim();
+			const checkConnected = setInterval(() => {
+				if (gameState.phase === 'BROWSER') {
+					clearInterval(checkConnected);
+					gameState.joinRoom(targetRoom);
+				}
+			}, 100);
+
+			// Timeout after 5s if connection fails
+			setTimeout(() => clearInterval(checkConnected), 5000);
+		}
+	}
+
+	// Clean the URL bar without reloading so the key isn't sitting in browser history
+	if (keyParam || roomParam) {
+		const cleanUrl = window.location.pathname;
+		window.history.replaceState({}, '', cleanUrl);
+	}
+}

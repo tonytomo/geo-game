@@ -6,7 +6,8 @@
 	import RoomBrowser from '#lib/components/RoomBrowser.svelte';
 	import StandingsModal from '#lib/components/StandingsModal.svelte';
 	import StreetView from '#lib/components/StreetView.svelte';
-	import { gameState } from '#lib/gameState.svelte.ts';
+	import { gameState, parseUrlParamsAndAutoConnect } from '#lib/gameState.svelte.ts';
+	import { onMount } from 'svelte';
 
 	function handleGlobalKeydown(e: KeyboardEvent) {
 		if (
@@ -19,6 +20,10 @@
 			gameState.lockGuess();
 		}
 	}
+
+	onMount(() => {
+		parseUrlParamsAndAutoConnect();
+	});
 </script>
 
 <svelte:window onkeydown={handleGlobalKeydown} />
