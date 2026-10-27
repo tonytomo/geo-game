@@ -41,7 +41,7 @@
 					id="api-key"
 					type="password"
 					bind:value={keyInput}
-					placeholder="k_tony_..."
+					placeholder="your_api_key"
 					required
 					class="w-full rounded-lg border border-slate-800 bg-slate-950 px-3.5 py-2.5 text-sm text-white placeholder-slate-600 transition focus:border-emerald-500 focus:outline-none"
 				/>
