@@ -79,7 +79,8 @@ class GameState {
 	constructor() {
 		this.ws = new WSClient(
 			(msg) => this.handleServerMessage(msg),
-			(connected, reason) => this.handleConnectionStatus(connected, reason)
+			(connected, reason, isReconnecting) =>
+				this.handleConnectionStatus(connected, reason, isReconnecting)
 		);
 	}
 
@@ -312,8 +313,17 @@ class GameState {
 	// 6. WebSocket Protocol Message Router
 	// ==========================================
 
-	private handleConnectionStatus(connected: boolean, reason?: string): void {
+	private handleConnectionStatus(
+		connected: boolean,
+		reason?: string,
+		isReconnecting?: boolean
+	): void {
 		if (!connected) {
+			if (isReconnecting) {
+				// Keep current room & phase alive while reconnecting!
+				this.errorBanner = reason ?? 'Reconnecting...';
+				return;
+			}
 			this.clearTimers();
 			this.resetRoomState();
 			this.phase = 'DISCONNECTED';
@@ -327,8 +337,14 @@ class GameState {
 				this.myClientId = msg.client_id;
 				this.myLabel = msg.label;
 				this.errorBanner = null;
-				this.phase = 'BROWSER';
-				this.refreshRooms();
+
+				// If we were already inside a room before a brief disconnect, auto-rejoin it!
+				if (this.currentRoom) {
+					this.ws.joinRoom(this.currentRoom);
+				} else {
+					this.phase = 'BROWSER';
+					this.refreshRooms();
+				}
 				break;
 
 			case 'room_list':
@@ -338,7 +354,10 @@ class GameState {
 			case 'room_joined':
 				this.currentRoom = msg.room;
 				this.errorBanner = null;
-				this.phase = 'LOBBY';
+				// Only switch to LOBBY if we aren't already mid-round
+				if (this.phase === 'DISCONNECTED' || this.phase === 'BROWSER') {
+					this.phase = 'LOBBY';
+				}
 				if (this.isHost) {
 					if (!this.players.includes(this.myLabel)) {
 						this.players = [this.myLabel];
