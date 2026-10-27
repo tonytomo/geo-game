@@ -35,8 +35,8 @@ jobs:
       - name: Build SvelteKit static bundle
         env:
           BASE_PATH: /${{ github.event.repository.name }}
-          PUBLIC_WS_URL: ${{ secrets.PUBLIC_WS_URL }}
-          PUBLIC_GOOGLE_MAPS_API_KEY: ${{ secrets.PUBLIC_GOOGLE_MAPS_API_KEY }}
+          WS_URL: ${{ secrets.WS_URL }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
         run: |
           npm run build
           touch build/.nojekyll
